@@ -28,6 +28,148 @@ const logError = (operation: string, error: any, context?: any) => {
   console.groupEnd();
 };
 
+// Enhanced JSON cleaning function
+function cleanJsonResponse(response: string): string {
+  console.log('🧹 Cleaning JSON response...');
+  console.log('📥 Raw response:', response);
+  
+  if (!response || typeof response !== 'string') {
+    console.warn('⚠️ Invalid response for cleaning:', response);
+    return '{}';
+  }
+  
+  // Remove markdown code blocks more aggressively
+  let cleaned = response
+    .replace(/^```json\s*/gmi, '') // Remove opening ```json (case insensitive, multiline)
+    .replace(/^```\s*/gm, '')      // Remove opening ``` at start of line
+    .replace(/```\s*$/gm, '')      // Remove closing ``` at end of line
+    .replace(/```/g, '')           // Remove any remaining ```
+    .trim();
+  
+  // Find the JSON object boundaries
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  
+  if (firstBrace !== -1 && lastBrace !== -1 && firstBrace <= lastBrace) {
+    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+  }
+  
+  // Additional cleanup for common AI response patterns
+  cleaned = cleaned
+    .replace(/^[^{]*/, '')         // Remove any text before the first {
+    .replace(/[^}]*$/, '}')        // Remove any text after the last } and ensure it ends with }
+    .replace(/\n\s*\n/g, '\n')     // Remove empty lines
+    .replace(/\s+/g, ' ')          // Normalize whitespace
+    .trim();
+  
+  console.log('🧹 Cleaned JSON:', cleaned);
+  return cleaned;
+}
+
+// Enhanced JSON parsing with better error handling
+function parseJsonSafely(jsonString: string): any {
+  console.log('🔍 Attempting to parse JSON safely...');
+  
+  if (!jsonString || typeof jsonString !== 'string') {
+    console.warn('⚠️ Invalid JSON string for parsing:', jsonString);
+    return { score: 0, reasons: ['Invalid response'], category: 'potential' };
+  }
+  
+  try {
+    // First attempt: direct parsing
+    const result = JSON.parse(jsonString);
+    console.log('✅ JSON parsed successfully on first attempt');
+    return result;
+  } catch (firstError) {
+    console.log('❌ First parse attempt failed:', firstError.message);
+    
+    try {
+      // Second attempt: fix common JSON issues
+      let fixedJson = jsonString;
+      
+      // Fix unescaped quotes in string values
+      fixedJson = fixedJson.replace(
+        /"([^"]*)":\s*"([^"]*(?:\\.[^"]*)*)"/g,
+        (match, key, value) => {
+          // Escape unescaped quotes in the value
+          const cleanValue = value.replace(/(?<!\\)"/g, '\\"');
+          return `"${key}": "${cleanValue}"`;
+        }
+      );
+      
+      // Fix array string values
+      fixedJson = fixedJson.replace(
+        /"([^"]*)":\s*\[([^\]]*)\]/g,
+        (match, key, arrayContent) => {
+          // Fix quotes in array elements
+          const fixedArrayContent = arrayContent.replace(
+            /"([^"]*(?:\\.[^"]*)*)"/g,
+            (itemMatch, itemValue) => {
+              const cleanItemValue = itemValue.replace(/(?<!\\)"/g, '\\"');
+              return `"${cleanItemValue}"`;
+            }
+          );
+          return `"${key}": [${fixedArrayContent}]`;
+        }
+      );
+      
+      console.log('🔧 Attempting to parse fixed JSON...');
+      const result = JSON.parse(fixedJson);
+      console.log('✅ JSON parsed successfully on second attempt');
+      return result;
+    } catch (secondError) {
+      console.log('❌ Second parse attempt failed:', secondError.message);
+      
+      try {
+        // Third attempt: manual extraction
+        console.log('🔧 Attempting manual JSON reconstruction...');
+        
+        const result: any = {};
+        
+        // Extract score
+        const scoreMatch = jsonString.match(/"score":\s*(\d+)/);
+        result.score = scoreMatch ? parseInt(scoreMatch[1]) : 0;
+        
+        // Extract category
+        const categoryMatch = jsonString.match(/"category":\s*"(excellent|good|potential)"/);
+        result.category = categoryMatch ? categoryMatch[1] : 'potential';
+        
+        // Extract reasons array
+        const reasonsMatch = jsonString.match(/"reasons":\s*\[(.*?)\]/s);
+        if (reasonsMatch) {
+          const reasonsContent = reasonsMatch[1];
+          const reasons = [];
+          // Match quoted strings in the array
+          const reasonItems = reasonsContent.match(/"([^"\\]*(\\.[^"\\]*)*)"/g);
+          if (reasonItems) {
+            for (const item of reasonItems) {
+              const cleanItem = item.slice(1, -1).replace(/\\"/g, '"');
+              reasons.push(cleanItem);
+            }
+          }
+          result.reasons = reasons.length > 0 ? reasons : ['Match analysis completed'];
+        } else {
+          result.reasons = ['Match analysis completed'];
+        }
+        
+        console.log('✅ Manual JSON reconstruction successful:', result);
+        return result;
+        
+      } catch (thirdError) {
+        console.error('❌ All JSON parsing attempts failed:', thirdError.message);
+        console.log('🔄 Returning fallback response');
+        
+        // Return a safe fallback
+        return {
+          score: 50,
+          reasons: ['Unable to parse AI response, using fallback score'],
+          category: 'potential'
+        };
+      }
+    }
+  }
+}
+
 export async function expandJobTitles(jobTitle: string): Promise<string[]> {
   if (!jobTitle || typeof jobTitle !== 'string') {
     console.error('❌ Invalid job title for expansion:', jobTitle);
@@ -78,7 +220,8 @@ export async function expandJobTitles(jobTitle: string): Promise<string[]> {
       }
     );
 
-    const expandedTitles = JSON.parse(response);
+    const cleanedResponse = cleanJsonResponse(response);
+    const expandedTitles = JSON.parse(cleanedResponse);
     
     if (!Array.isArray(expandedTitles)) {
       throw new Error('Response is not an array');
@@ -208,7 +351,8 @@ export async function extractEntities(query: string): Promise<SearchQuery> {
       }
     );
 
-    const extractedData = JSON.parse(response);
+    const cleanedResponse = cleanJsonResponse(response);
+    const extractedData = parseJsonSafely(cleanedResponse);
     
     const result = {
       originalQuery: query,
@@ -704,12 +848,15 @@ Evaluate this match and provide detailed scoring with specific reasons.`;
       }
     );
 
-    const result = JSON.parse(response);
+    // Clean and parse the response with enhanced error handling
+    const cleanedResponse = cleanJsonResponse(response);
+    const result = parseJsonSafely(cleanedResponse);
     
     const explanation = {
       score: Math.min(100, Math.max(0, result.score || 0)),
-      reasons: result.reasons || ['Match analysis completed'],
-      category: result.category || (result.score >= 90 ? 'excellent' : result.score >= 70 ? 'good' : 'potential')
+      reasons: Array.isArray(result.reasons) ? result.reasons : ['Match analysis completed'],
+      category: ['excellent', 'good', 'potential'].includes(result.category) ? result.category : 
+        (result.score >= 90 ? 'excellent' : result.score >= 70 ? 'good' : 'potential')
     };
 
     console.log(`✅ AI analysis complete for ${candidate.name}:`, explanation);
