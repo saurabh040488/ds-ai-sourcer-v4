@@ -163,7 +163,7 @@ function AppContent() {
         return;
       }
 
-      if (searchResults && searchResults.length > 0) {
+      if (searchResults && Array.isArray(searchResults) && searchResults.length > 0) {
         console.log('✅ Loaded saved search results:', searchResults.length);
         
         // Convert database candidates to frontend format
@@ -188,7 +188,13 @@ function AppContent() {
         setMatches(candidateMatches);
         console.log('✅ Displaying saved search results');
       } else {
-        console.log('🔄 No saved results found for this search');
+        console.log('🔄 No saved results found for this search, performing new search');
+        // If no saved results, perform a new search
+        const searchQuery_obj: SearchQuery = {
+          originalQuery: searchQuery,
+          extractedEntities: {}
+        };
+        await handleSearch(searchQuery_obj);
       }
     } catch (error) {
       console.error('❌ Error handling recent search click:', error);
