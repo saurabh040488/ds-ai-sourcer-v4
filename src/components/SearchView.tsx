@@ -587,7 +587,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                                   </h4>
                                   
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {message.extractedFilters.jobTitles?.length > 0 && (
+                                    {message.extractedFilters.jobTitles && message.extractedFilters.jobTitles.length > 0 && (
                                       <div>
                                         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Job Titles</span>
                                         <div className="flex flex-wrap gap-1 mt-1">
@@ -608,7 +608,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                                       </div>
                                     )}
                                     
-                                    {message.extractedFilters.locations?.length > 0 && (
+                                    {message.extractedFilters.locations && message.extractedFilters.locations.length > 0 && (
                                       <div>
                                         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Locations</span>
                                         <div className="flex flex-wrap gap-1 mt-1">
@@ -621,7 +621,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                                       </div>
                                     )}
                                     
-                                    {message.extractedFilters.experienceRange?.min && (
+                                    {message.extractedFilters.experienceRange && message.extractedFilters.experienceRange.min && (
                                       <div>
                                         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Experience</span>
                                         <div className="mt-1">
@@ -632,7 +632,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                                       </div>
                                     )}
 
-                                    {message.extractedFilters.skills?.length > 0 && (
+                                    {message.extractedFilters.skills && message.extractedFilters.skills.length > 0 && (
                                       <div>
                                         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Skills</span>
                                         <div className="flex flex-wrap gap-1 mt-1">
@@ -653,7 +653,7 @@ const SearchView: React.FC<SearchViewProps> = ({
                                       </div>
                                     )}
 
-                                    {message.extractedFilters.industries?.length > 0 && (
+                                    {message.extractedFilters.industries && message.extractedFilters.industries.length > 0 && (
                                       <div>
                                         <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">Industries</span>
                                         <div className="flex flex-wrap gap-1 mt-1">
